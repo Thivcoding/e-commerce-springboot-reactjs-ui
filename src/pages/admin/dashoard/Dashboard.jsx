@@ -1,14 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   FaArrowRotateRight,
-  FaArrowTrendUp,
   FaBoxOpen,
-  FaChartColumn,
-  FaChartLine,
   FaDollarSign,
   FaReceipt,
   FaUsers,
 } from 'react-icons/fa6'
+
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts'
+
 import { getAllOrdersService } from '../../../services/orderService'
 import { getAllPaymentsService } from '../../../services/paymentService'
 import { getAllProductsService } from '../../../services/productService'
@@ -17,21 +27,12 @@ import { getAllUsersService } from '../../../services/userService'
 const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
 const statusLabels = ['PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED']
 
-const formatMoney = (value) => `$${Number(value || 0).toFixed(2)}`
+const formatMoney = (v) => `$${Number(v || 0).toFixed(2)}`
+const getBody = (r) => (r.status === 'fulfilled' ? r.value?.body || [] : [])
 
-const formatDate = (value) => {
-  if (!value) return '-'
+const COLORS = ['#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ef4444']
 
-  return new Date(value).toLocaleString()
-}
-
-const getBody = (result) => {
-  if (result.status !== 'fulfilled') return []
-
-  return result.value?.body || []
-}
-
-const Dashboard = () => {
+export default function Dashboard() {
   const [users, setUsers] = useState([])
   const [products, setProducts] = useState([])
   const [orders, setOrders] = useState([])
@@ -39,362 +40,194 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false)
 
   const fetchDashboard = async () => {
+    setLoading(true)
+
     try {
-      setLoading(true)
+      const [u, p, o, pay] = await Promise.allSettled([
+        getAllUsersService(),
+        getAllProductsService(),
+        getAllOrdersService(),
+        getAllPaymentsService(),
+      ])
 
-      const [usersResult, productsResult, ordersResult, paymentsResult] =
-        await Promise.allSettled([
-          getAllUsersService(),
-          getAllProductsService(),
-          getAllOrdersService(),
-          getAllPaymentsService(),
-        ])
-
-      setUsers(getBody(usersResult))
-      setProducts(getBody(productsResult))
-      setOrders(getBody(ordersResult))
-      setPayments(getBody(paymentsResult))
-    } catch (error) {
-      console.log(error)
+      setUsers(getBody(u))
+      setProducts(getBody(p))
+      setOrders(getBody(o))
+      setPayments(getBody(pay))
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    let active = true
-
-    const loadDashboard = async () => {
-      try {
-        setLoading(true)
-
-        const [usersResult, productsResult, ordersResult, paymentsResult] =
-          await Promise.allSettled([
-            getAllUsersService(),
-            getAllProductsService(),
-            getAllOrdersService(),
-            getAllPaymentsService(),
-          ])
-
-        if (active) {
-          setUsers(getBody(usersResult))
-          setProducts(getBody(productsResult))
-          setOrders(getBody(ordersResult))
-          setPayments(getBody(paymentsResult))
-        }
-      } catch (error) {
-        console.log(error)
-      } finally {
-        if (active) {
-          setLoading(false)
-        }
-      }
-    }
-
-    loadDashboard()
-
-    return () => {
-      active = false
-    }
+    fetchDashboard()
   }, [])
 
   const dashboardData = useMemo(() => {
-    const paidPayments = payments.filter((payment) => payment.paymentStatus === 'PAID')
-    const paymentRevenue = paidPayments.reduce(
-      (total, payment) => total + Number(payment.amount || 0),
-      0
-    )
+    const paidPayments = payments.filter((p) => p.paymentStatus === 'PAID')
 
-    const orderRevenue = orders.reduce((total, order) => total + Number(order.totalPrice || 0), 0)
-    const revenue = paymentRevenue || orderRevenue
+    const revenue = paidPayments.reduce((s, p) => s + Number(p.amount || 0), 0)
 
-    const monthlyTotals = monthLabels.map((month, index) => {
-      const total = orders
-        .filter((order) => {
-          if (!order.createdAt) return false
+    // Monthly revenue (REAL)
+    const monthlyRevenue = monthLabels.map((month, index) => {
+      const total = paidPayments
+        .filter((p) => new Date(p.createdAt).getMonth() === index)
+        .reduce((s, p) => s + Number(p.amount || 0), 0)
 
-          return new Date(order.createdAt).getMonth() === index
-        })
-        .reduce((sum, order) => sum + Number(order.totalPrice || 0), 0)
-
-      return {
-        month,
-        total,
-      }
+      return { month, total }
     })
 
-    const maxMonthlyTotal = Math.max(...monthlyTotals.map((item) => item.total), 1)
-
-    const salesData = monthlyTotals.map((item) => ({
-      ...item,
-      value: Math.max((item.total / maxMonthlyTotal) * 100, item.total > 0 ? 8 : 0),
+    // Order status chart
+    const statusData = statusLabels.map((status) => ({
+      name: status,
+      value: orders.filter((o) => o.status === status).length,
     }))
 
-    const statusData = statusLabels.map((status) => {
-      const count = orders.filter((order) => order.status === status).length
-      const value = orders.length ? (count / orders.length) * 100 : 0
+    // Top products
+    const map = new Map()
 
-      return {
-        status,
-        count,
-        value,
-      }
-    })
+    orders.forEach((order) => {
+      (order.items || []).forEach((item) => {
+        const id = item.productId
 
-    const soldMap = orders.reduce((map, order) => {
-      ;(order.items || []).forEach((item) => {
-        const key = item.productId || item.productName
-        const current = map.get(key) || {
-          name: item.productName || 'Unknown product',
+        const current = map.get(id) || {
+          name: item.productName,
           sold: 0,
           amount: 0,
-          stock: 0,
         }
 
         current.sold += Number(item.quantity || 0)
         current.amount += Number(item.totalPrice || 0)
 
-        map.set(key, current)
+        map.set(id, current)
       })
-
-      return map
-    }, new Map())
-
-    products.forEach((product) => {
-      const current = soldMap.get(product.id) || {
-        name: product.name,
-        sold: 0,
-        amount: 0,
-        stock: product.stock || 0,
-      }
-
-      current.stock = product.stock || 0
-      soldMap.set(product.id, current)
     })
 
-    const topProducts = Array.from(soldMap.values())
+    const topProducts = Array.from(map.values())
       .sort((a, b) => b.sold - a.sold)
       .slice(0, 5)
 
     const recentOrders = [...orders]
-      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 5)
 
     return {
       revenue,
-      salesData,
+      monthlyRevenue,
       statusData,
       topProducts,
       recentOrders,
     }
-  }, [orders, payments, products])
+  }, [orders, payments])
 
   const stats = [
-    {
-      label: 'Total revenue',
-      value: formatMoney(dashboardData.revenue),
-      change: 'Real data',
-      tone: 'bg-blue-50 text-blue-700',
-      icon: FaDollarSign,
-    },
-    {
-      label: 'Orders',
-      value: orders.length.toLocaleString(),
-      change: 'Live API',
-      tone: 'bg-emerald-50 text-emerald-700',
-      icon: FaReceipt,
-    },
-    {
-      label: 'Customers',
-      value: users.length.toLocaleString(),
-      change: 'Live API',
-      tone: 'bg-violet-50 text-violet-700',
-      icon: FaUsers,
-    },
-    {
-      label: 'Products',
-      value: products.length.toLocaleString(),
-      change: 'Live API',
-      tone: 'bg-amber-50 text-amber-700',
-      icon: FaBoxOpen,
-    },
+    { label: 'Revenue', value: formatMoney(dashboardData.revenue), icon: FaDollarSign },
+    { label: 'Orders', value: orders.length, icon: FaReceipt },
+    { label: 'Users', value: users.length, icon: FaUsers },
+    { label: 'Products', value: products.length, icon: FaBoxOpen },
   ]
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <p className="text-sm font-bold text-slate-500">Overview</p>
-          <h2 className="text-3xl font-black text-slate-950">Store performance</h2>
-        </div>
+
+      {/* HEADER */}
+      <div className="flex justify-between">
+        {/* <h1 className="text-2xl font-black">Dashboard</h1> */}
+
+         <div>
+            <h1 className="text-4xl font-bold text-gray-800">Dashboard</h1>
+          </div>
 
         <button
-          type="button"
           onClick={fetchDashboard}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+          className="rounded bg-[#2563EB] px-4 py-2 text-white"
         >
-          <FaArrowRotateRight className={loading ? 'animate-spin' : ''} />
           {loading ? 'Loading...' : 'Refresh'}
         </button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((item) => (
-          <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${item.tone}`}>
-                  <item.icon />
-                </div>
-                <p className="text-sm font-bold text-slate-500">{item.label}</p>
-              </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-black ${item.tone}`}>
-                <FaArrowTrendUp className="mr-1 inline-block" />
-                {item.change}
-              </span>
-            </div>
-            <p className="mt-4 text-3xl font-black text-slate-950">{item.value}</p>
+      {/* STATS */}
+      <div className="grid grid-cols-4 gap-4">
+        {stats.map((s) => (
+          <div key={s.label} className="rounded-xl bg-white p-4 shadow">
+            <s.icon className="mb-2 text-blue-600" />
+            <p className="text-sm">{s.label}</p>
+            <h2 className="text-xl font-black">{s.value}</h2>
           </div>
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h3 className="flex items-center gap-2 text-lg font-black text-slate-950">
-                <FaChartColumn className="text-blue-600" />
-                Monthly sales
-              </h3>
-              <p className="text-sm font-semibold text-slate-500">Revenue by order month</p>
-            </div>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-              API
-            </span>
-          </div>
+      {/* CHARTS */}
+      <div className="grid grid-cols-2 gap-4">
 
-          <div className="flex h-72 items-end gap-3 border-b border-slate-200 pb-4">
-            {dashboardData.salesData.map((item) => (
-              <div key={item.month} className="flex flex-1 flex-col items-center gap-3">
-                <div className="flex h-56 w-full items-end rounded-xl bg-slate-100 p-1">
-                  <div
-                    className="w-full rounded-lg bg-blue-600 shadow-lg shadow-blue-100"
-                    style={{ height: `${item.value}%` }}
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="text-xs font-black text-slate-500">{item.month}</p>
-                  <p className="text-[11px] font-bold text-slate-400">{formatMoney(item.total)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* LINE CHART */}
+        <div className="rounded-xl bg-white p-4 shadow">
+          <h3 className="mb-3 font-bold">Monthly Revenue</h3>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <div className="mb-6">
-            <h3 className="flex items-center gap-2 text-lg font-black text-slate-950">
-              <FaChartLine className="text-emerald-600" />
-              Order status
-            </h3>
-            <p className="text-sm font-semibold text-slate-500">Current order distribution</p>
-          </div>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={dashboardData.monthlyRevenue}>
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip formatter={(v) => `$${v}`} />
+              <Line
+                type="monotone"
+                dataKey="total"
+                stroke="#2563eb"
+                strokeWidth={3}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
 
-          <div className="space-y-4">
-            {dashboardData.statusData.map((item) => (
-              <div key={item.status}>
-                <div className="mb-2 flex items-center justify-between text-sm font-bold">
-                  <span className="text-slate-600">{item.status}</span>
-                  <span className="text-slate-950">{item.count}</span>
-                </div>
-                <div className="h-3 rounded-full bg-slate-100">
-                  <div
-                    className="h-3 rounded-full bg-emerald-500"
-                    style={{ width: `${item.value}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* PIE CHART */}
+        <div className="rounded-xl bg-white p-4 shadow">
+          <h3 className="mb-3 font-bold">Order Status</h3>
+
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={dashboardData.statusData}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={90}
+              >
+                {dashboardData.statusData.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="flex items-center gap-2 text-lg font-black text-slate-950">
-            <FaBoxOpen className="text-amber-600" />
-            Top products
-          </h3>
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left">
-              <thead>
-                <tr className="border-b border-slate-200 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-                  <th className="pb-3">Product</th>
-                  <th className="pb-3">Sold</th>
-                  <th className="pb-3">Stock</th>
-                  <th className="pb-3 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {dashboardData.topProducts.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="py-6 text-center text-sm font-bold text-slate-400">
-                      No product sales yet
-                    </td>
-                  </tr>
-                ) : (
-                  dashboardData.topProducts.map((product) => (
-                    <tr key={product.name}>
-                      <td className="py-4 text-sm font-black text-slate-950">{product.name}</td>
-                      <td className="py-4 text-sm font-bold text-slate-600">{product.sold}</td>
-                      <td className="py-4 text-sm font-bold text-slate-600">{product.stock}</td>
-                      <td className="py-4 text-right text-sm font-black text-slate-950">
-                        {formatMoney(product.amount)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+      {/* TOP PRODUCTS */}
+      <div className="rounded-xl bg-white p-4 shadow">
+        <h3 className="mb-3 font-bold">Top Products</h3>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="flex items-center gap-2 text-lg font-black text-slate-950">
-            <FaReceipt className="text-blue-600" />
-            Recent orders
-          </h3>
-          <div className="mt-5 space-y-3">
-            {dashboardData.recentOrders.length === 0 ? (
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-6 text-center text-sm font-bold text-slate-400">
-                No recent orders
-              </div>
-            ) : (
-              dashboardData.recentOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50 p-4"
-                >
-                  <div className="min-w-0">
-                    <p className="font-black text-slate-950">#{order.id}</p>
-                    <p className="truncate text-sm font-semibold text-slate-500">
-                      {order.userName || order.fullName || 'Unknown customer'}
-                    </p>
-                    <p className="text-xs font-bold text-slate-400">{formatDate(order.createdAt)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-black text-slate-950">{formatMoney(order.totalPrice)}</p>
-                    <p className="text-xs font-black text-blue-600">{order.status}</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
+        <table className="w-full text-left">
+          <thead>
+            <tr className="text-sm">
+              <th>Name</th>
+              <th>Sold</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {dashboardData.topProducts.map((p) => (
+              <tr key={p.name}>
+                <td>{p.name}</td>
+                <td>{p.sold}</td>
+                <td>{formatMoney(p.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
+
     </div>
   )
 }
-
-export default Dashboard

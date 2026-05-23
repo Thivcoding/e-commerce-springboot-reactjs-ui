@@ -46,9 +46,9 @@ const menuItems = [
 
 const Sidebar = () => {
   return (
-    <aside className="relative w-[260px] bg-indigo-700 text-white min-h-screen shadow-xl">
+    <aside className="relative w-[260px] bg-[#4338CA] text-white min-h-screen shadow-xl">
       {/* Logo */}
-      <div className="h-20 flex items-center justify-center border-b border-indigo-600">
+      <div className="h-22 flex items-center justify-center border-b border-indigo-600">
         <div className="flex items-center gap-2">
           <FaHome size={22} />
           <h1 className="text-2xl font-bold">Ecommerce</h1>
@@ -66,7 +66,7 @@ const Sidebar = () => {
               ${
                 isActive
                   ? "bg-white text-indigo-700"
-                  : "hover:bg-indigo-600"
+                  : "hover:bg-[#4F46E5]"
               }`
             }
           >
@@ -76,13 +76,6 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      {/* Logout */}
-      {/* <div className="absolute bottom-5 left-0 w-full px-4">
-        <button className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 transition-all py-3 rounded-xl">
-          <FaSignOutAlt size={18} />
-          Logout
-        </button>
-      </div> */}
     </aside>
   );
 };

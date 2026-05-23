@@ -49,7 +49,7 @@ const CategoryEdit = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
+    <div className="min-h-screen  ">
       <div className="flex justify-between">
         <h1 className="text-4xl font-bold">Edit Category</h1>
 

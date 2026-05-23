@@ -7,7 +7,7 @@ import Footer from "../components/users/layout/Footer";
 
 const MainLayout = () => {
   return (
-    <div className="min-h-screen flex bg-gray-100">
+    <div className="min-h-screen flex bg-[#F8FAFC]">
 
       {/* Sidebar */}
       {/* <Sidebar /> */}

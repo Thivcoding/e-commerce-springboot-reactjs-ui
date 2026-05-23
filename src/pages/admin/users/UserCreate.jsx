@@ -25,7 +25,7 @@ const UserCreate = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
+    <div className="min-h-screen  ">
       <div className="flex justify-between">
         <h1 className="text-4xl font-bold">Create User</h1>
 

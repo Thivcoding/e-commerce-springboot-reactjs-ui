@@ -1,198 +1,312 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaSearch, FaShoppingCart, FaBars, FaTimes } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/useAuth";
 import { useCart } from "../../../hooks/useCart";
+import { getAllCategoriesService } from "../../../services/categoryService";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categories, setCategories] = useState([]);
+
   const { token, user, logout } = useAuth();
-  const { cart  } = useCart();
+  const { cart } = useCart();
 
   const menuItems = [
     { label: "Home", path: "/" },
     { label: "Products", path: "/products" },
-    { label: "Orders", path: "/my-orders" },
+    { label: "About", path: "/about" },
+    { label: "Contact", path: "/contact" },
   ];
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const result = await getAllCategoriesService();
+        const fetchedCategories = Array.isArray(result?.body)
+          ? result.body
+          : Array.isArray(result)
+            ? result
+            : [];
+
+        setCategories(fetchedCategories);
+      } catch (error) {
+        console.error("Failed to load categories for navbar", error);
+        setCategories([]);
+      }
+    };
+
+    loadCategories();
+  }, []);
 
   const handleLogout = () => {
     logout();
     window.location.href = "/";
   };
 
+  const cartCount = cart?.items?.length || 0;
+
+  const handleSearch = (e) => {
+    if (e.key === "Enter") {
+      console.log("Search:", search);
+      // TODO: navigate to /products?search=...
+    }
+  };
+
+  const categoryLinks = categories.map((category) => ({
+    label: category.name,
+    path: `/products?category=${encodeURIComponent(category.name)}`,
+  }));
+
   return (
-    <header className="bg-white shadow-lg sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Left - Logo */}
-          <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-            <div className="bg-indigo-600 text-white px-3 py-1 rounded-lg font-bold text-xl">
-              E
-            </div>
-            <span className="text-2xl font-bold text-gray-800 hidden sm:block">
-              Ecommerce
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0B1220]/90 backdrop-blur-md text-white">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+        {/* LOGO */}
+        <Link to="/" className="flex items-center gap-2">
+          <div className="bg-amber-300 px-3 py-1 rounded-lg font-black text-black">
+            E
+          </div>
+          <span className="text-lg font-black">Ecommerce</span>
+        </Link>
+
+        {/* MENU (DESKTOP) */}
+        <nav className="hidden lg:flex items-center gap-8">
+          {menuItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className="text-gray-300 hover:text-white transition text-sm font-medium"
+            >
+              {item.label}
+            </Link>
+          ))}
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setCategoryOpen((open) => !open)}
+              className="flex items-center gap-1 text-sm font-medium text-gray-300 transition hover:text-white"
+            >
+              Categories
+              <span className="text-xs">▾</span>
+            </button>
+
+            {categoryOpen && (
+              <div className="absolute left-0 top-full mt-2 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#111827] shadow-2xl">
+                <Link
+                  to="/products"
+                  onClick={() => setCategoryOpen(false)}
+                  className="block px-4 py-3 text-sm text-gray-200 transition hover:bg-white/5 hover:text-white"
+                >
+                  All Categories
+                </Link>
+
+                {categoryLinks.length > 0 ? (
+                  categoryLinks.map((category) => (
+                    <Link
+                      key={category.path}
+                      to={category.path}
+                      onClick={() => setCategoryOpen(false)}
+                      className="block px-4 py-3 text-sm text-gray-200 transition hover:bg-white/5 hover:text-white"
+                    >
+                      {category.label}
+                    </Link>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-sm text-gray-400">
+                    Loading categories...
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </nav>
+
+        {/* RIGHT SIDE */}
+        <div className="flex items-center gap-4">
+          {/* SEARCH */}
+          <div className="hidden sm:flex items-center gap-2 rounded-full bg-white/5 px-3 py-2">
+            <FaSearch className="text-gray-400 text-sm" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearch}
+              placeholder="Search products..."
+              className="bg-transparent outline-none text-sm text-white placeholder-gray-500 w-32 lg:w-48"
+            />
+          </div>
+
+          {/* CART */}
+          <Link
+            to="/cart"
+            className="relative rounded-full bg-white/5 p-2 hover:bg-white/10 transition"
+          >
+            <FaShoppingCart />
+
+            <span className="absolute -top-1 -right-1 bg-amber-300 text-black text-xs px-1.5 rounded-full font-bold">
+              {cartCount}
             </span>
           </Link>
 
-          {/* Center - Menu (Hidden on mobile) */}
-          <nav className="hidden lg:flex items-center gap-8 flex-1 justify-center">
+          {/* AUTH */}
+          {token && user ? (
+            <div className="hidden sm:block relative">
+              <button
+                type="button"
+                onClick={() => setProfileOpen((open) => !open)}
+                aria-expanded={profileOpen}
+                aria-haspopup="menu"
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1.5 pr-3 transition hover:bg-white/10"
+              >
+                <img
+                  src={user?.imageUrl}
+                  alt={user?.name}
+                  className="h-8 w-8 rounded-full object-cover border border-white/20"
+                />
+                <span className="text-sm font-medium text-white">
+                  {user?.name}
+                </span>
+                <span className="text-xs text-gray-300">▾</span>
+              </button>
+
+              {profileOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#111827] shadow-2xl">
+                  <Link
+                    to="/profile"
+                    onClick={() => setProfileOpen(false)}
+                    className="block px-4 py-3 text-sm text-gray-200 transition hover:bg-white/5 hover:text-white"
+                  >
+                    Profile
+                  </Link>
+                  <Link
+                    to="/my-orders"
+                    onClick={() => setProfileOpen(false)}
+                    className="block px-4 py-3 text-sm text-gray-200 transition hover:bg-white/5 hover:text-white"
+                  >
+                    My Orders
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setProfileOpen(false);
+                      handleLogout();
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm font-semibold text-red-300 transition hover:bg-red-500/10"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="hidden sm:flex items-center gap-2">
+              <Link
+                to="/login"
+                className="text-sm text-gray-300 hover:text-white"
+              >
+                Login
+              </Link>
+
+              <Link
+                to="/register"
+                className="rounded-full bg-amber-300 px-4 py-1.5 text-sm font-bold text-black hover:bg-amber-200"
+              >
+                Register
+              </Link>
+            </div>
+          )}
+
+          {/* MOBILE BUTTON */}
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="lg:hidden text-white"
+          >
+            {isOpen ? <FaTimes /> : <FaBars />}
+          </button>
+        </div>
+      </div>
+
+      {/* MOBILE MENU */}
+      {isOpen && (
+        <div className="lg:hidden border-t border-white/10 bg-[#0B1220] px-4 py-4">
+          <div className="flex flex-col gap-3">
             {menuItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className="text-gray-700 hover:text-indigo-600 font-medium transition duration-200 text-sm"
+                onClick={() => setIsOpen(false)}
+                className="text-gray-300 hover:text-white"
               >
                 {item.label}
               </Link>
             ))}
-          </nav>
 
-          {/* Right - Search, Cart, Auth */}
-          <div className="flex items-center gap-3 sm:gap-5">
-            {/* Search (Hidden on small screens) */}
-            <div className="hidden sm:flex items-center bg-gray-100 px-3 py-2 rounded-lg gap-2">
-              <FaSearch className="text-gray-500 text-sm" />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="bg-transparent outline-none px-2 w-32 lg:w-48 text-sm"
-              />
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+              <p className="text-xs uppercase tracking-[0.2em] text-gray-400">
+                Categories
+              </p>
+              <div className="mt-2 flex flex-col gap-2">
+                <Link
+                  to="/products"
+                  onClick={() => setIsOpen(false)}
+                  className="text-sm text-gray-200"
+                >
+                  All Categories
+                </Link>
+
+                {categoryLinks.length > 0 ? (
+                  categoryLinks.map((category) => (
+                    <Link
+                      key={category.path}
+                      to={category.path}
+                      onClick={() => setIsOpen(false)}
+                      className="text-sm text-gray-200"
+                    >
+                      {category.label}
+                    </Link>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-400">
+                    Loading categories...
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* Cart Icon */}
-            <Link
-              to="/cart"
-              className="relative text-gray-700 hover:text-indigo-600 transition duration-200"
-            >
-              <FaShoppingCart className="text-lg" />
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-1.5 rounded-full font-semibold">
-                {cart.items.length}
-              </span>
-            </Link>
+            {/* MOBILE SEARCH */}
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="mt-3 rounded-full bg-white/5 px-4 py-2 text-sm outline-none"
+            />
 
-            {/* Auth Section */}
+            {/* MOBILE AUTH */}
             {token && user ? (
-              <div className="hidden sm:flex items-center gap-4">
-                <Link
-                  to="/profile"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition duration-200"
-                >
-                  <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white">
-                    {/* <FaUser size={12} /> */}
-                    <img
-                      className="w-full h-full rounded-full object-cover"
-                      src={user?.imageUrl}
-                      alt={user?.name}
-                    />
-                  </div>
-
-                  <span className="text-sm font-medium text-gray-700 hidden lg:block">
-                    {user?.name}
-                  </span>
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 text-sm font-medium"
-                >
-                  Logout
-                </button>
-              </div>
+              <button
+                onClick={handleLogout}
+                className="rounded bg-red-500 py-2 text-sm font-bold"
+              >
+                Logout
+              </button>
             ) : (
-              <div className="hidden sm:flex items-center gap-2">
-                <Link
-                  to="/login"
-                  className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition duration-200 font-medium text-sm"
-                >
+              <div className="flex flex-col gap-2">
+                <Link to="/login" className="text-sm text-gray-300">
                   Login
                 </Link>
                 <Link
                   to="/register"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200 font-medium text-sm"
+                  className="rounded bg-amber-300 py-2 text-center text-sm font-bold text-black"
                 >
                   Register
                 </Link>
               </div>
             )}
-
-            {/* Mobile Menu Toggle */}
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="lg:hidden text-gray-700 hover:text-indigo-600 transition duration-200"
-            >
-              {isOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
-            </button>
           </div>
         </div>
-
-        {/* Mobile Menu */}
-        {isOpen && (
-          <div className="lg:hidden pb-4 border-t border-gray-200">
-            <nav className="flex flex-col gap-2 mt-4">
-              {menuItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition duration-200 font-medium"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-
-            {/* Mobile Search */}
-            <div className="mt-4 px-4">
-              <div className="flex items-center bg-gray-100 px-3 py-2 rounded-lg gap-2">
-                <FaSearch className="text-gray-500" />
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  className="bg-transparent outline-none px-2 w-full text-sm"
-                />
-              </div>
-            </div>
-
-            {/* Mobile Auth */}
-            {token && user ? (
-              <div className="mt-4 px-4 flex flex-col gap-2">
-                <Link
-                  to="/profile"
-                  onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg font-medium text-center"
-                >
-                  My Profile
-                </Link>
-                <button
-                  onClick={() => {
-                    handleLogout();
-                    setIsOpen(false);
-                  }}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg font-medium"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <div className="mt-4 px-4 flex flex-col gap-2">
-                <Link
-                  to="/login"
-                  onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg font-medium text-center"
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/register"
-                  onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium text-center"
-                >
-                  Register
-                </Link>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      )}
     </header>
   );
 };

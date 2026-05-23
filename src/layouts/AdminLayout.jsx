@@ -40,15 +40,15 @@ const AdminLayout = () => {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
+    <main className="min-h-screen bg-[#F8FAFC] text-slate-950">
       <div className="flex min-h-screen">
         <Sidebar />
 
         <section className="flex min-w-0 flex-1 flex-col">
           <Navbar user={user} onLogout={handleLogout} />
 
-          <div className="flex-1 p-5 lg:p-8">
-            <div className="min-h-[calc(100vh-8rem)] rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70 lg:p-8">
+          <div className="flex-1 p-8">
+            <div className="min-h-[calc(100vh-8rem)] ">
               <Outlet />
             </div>
           </div>

@@ -65,7 +65,7 @@ const PaymentDetailPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
+    <div className="min-h-screen ">
       <div className="mb-8 flex justify-between">
         <h1 className="text-4xl font-bold">Payment Detail</h1>
 

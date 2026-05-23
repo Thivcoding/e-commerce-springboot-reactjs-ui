@@ -1,5 +1,9 @@
+// # Improved Ecommerce Product Page (React + TailwindCSS)
+
+// jsx
 import { useEffect, useMemo, useState } from "react";
 import { FaSearch } from "react-icons/fa";
+import { useLocation } from "react-router-dom";
 import ProductCard from "../../../components/users/ProductCard";
 import { getAllProductsService } from "../../../services/productService";
 
@@ -7,9 +11,16 @@ const ProductPage = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("All");
+  const [sort, setSort] = useState("latest");
   const [error, setError] = useState(null);
 
+  const location = useLocation();
+
+  // =========================
+  // LOAD PRODUCTS
+  // =========================
   useEffect(() => {
     const loadProducts = async () => {
       try {
@@ -18,10 +29,11 @@ const ProductPage = () => {
 
         const data = await getAllProductsService();
         const result = data?.body ?? data;
+
         setProducts(Array.isArray(result) ? result : []);
       } catch (err) {
+        console.error(err);
         setError("Unable to load products. Please try again later.");
-        console.error("Product load error:", err);
       } finally {
         setLoading(false);
       }
@@ -30,6 +42,34 @@ const ProductPage = () => {
     loadProducts();
   }, []);
 
+  // =========================
+  // URL CATEGORY
+  // =========================
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const categoryParam = params.get("category");
+
+    if (categoryParam) {
+      setCategory(decodeURIComponent(categoryParam));
+    } else {
+      setCategory("All");
+    }
+  }, [location.search]);
+
+  // =========================
+  // DEBOUNCE SEARCH
+  // =========================
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // =========================
+  // CATEGORIES
+  // =========================
   const categories = useMemo(() => {
     return [
       "All",
@@ -39,10 +79,13 @@ const ProductPage = () => {
     ];
   }, [products]);
 
+  // =========================
+  // FILTER + SORT
+  // =========================
   const filteredProducts = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = debouncedSearch.trim().toLowerCase();
 
-    return products.filter((product) => {
+    let filtered = products.filter((product) => {
       const matchesSearch =
         !query ||
         product.name?.toLowerCase().includes(query) ||
@@ -54,97 +97,165 @@ const ProductPage = () => {
 
       return matchesSearch && matchesCategory;
     });
-  }, [products, search, category]);
+
+    switch (sort) {
+      case "price-low":
+        filtered.sort((a, b) => a.price - b.price);
+        break;
+
+      case "price-high":
+        filtered.sort((a, b) => b.price - a.price);
+        break;
+
+      case "name":
+        filtered.sort((a, b) =>
+          a.name.localeCompare(b.name),
+        );
+        break;
+
+      default:
+        break;
+    }
+
+    return filtered;
+  }, [products, debouncedSearch, category, sort]);
 
   return (
     <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-indigo-600">
-              Shop
-            </p>
-            <h1 className="mt-3 text-4xl font-bold text-slate-900">
-              Browse products
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-              Explore our product catalog, filter by category, and find the best
-              deals for your needs.
-            </p>
-          </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:w-105">
-            <label className="relative block">
-              <span className="sr-only">Search products</span>
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+        {/* TOP FILTERS */}
+        <div className="mb-8 rounded-3xl bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
+            {/* SEARCH */}
+            <div className="relative w-full lg:max-w-md">
+              <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">
                 <FaSearch />
               </span>
+
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search products..."
-                className="w-full rounded-3xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                className="w-full rounded-2xl border border-slate-300 bg-white py-3 pl-12 pr-4 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
               />
-            </label>
+            </div>
 
+            {/* SORT */}
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-3xl border border-slate-300 bg-white py-3 px-4 text-sm shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
             >
-              {categories.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
+              <option value="latest">Latest</option>
+              <option value="price-low">Price: Low to High</option>
+              <option value="price-high">Price: High to Low</option>
+              <option value="name">Name</option>
             </select>
+          </div>
+
+          {/* CATEGORY PILLS */}
+          <div className="mt-5 flex flex-wrap gap-3">
+            {categories.map((item) => (
+              <button
+                key={item}
+                onClick={() => setCategory(item)}
+                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
+                  category === item
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                {item}
+              </button>
+            ))}
           </div>
         </div>
 
-        {error && (
-          <div className="rounded-3xl border border-red-200 bg-red-50 px-6 py-5 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-white px-5 py-4 shadow-sm">
+        {/* STATUS BAR */}
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-white px-6 py-4 shadow-sm">
           <p className="text-sm text-slate-600">
-            Showing{" "}
-            <span className="font-semibold text-slate-900">
+            Showing
+            <span className="mx-1 font-bold text-slate-900">
               {filteredProducts.length}
-            </span>{" "}
+            </span>
             products
           </p>
+
           <p className="text-sm text-slate-500">
             {loading
               ? "Loading products..."
               : filteredProducts.length === 0
-                ? "No products matched"
-                : ""}
+              ? "No products matched"
+              : "Browse our latest collection"}
           </p>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        {/* ERROR */}
+        {error && (
+          <div className="mb-8 rounded-3xl border border-red-200 bg-red-50 px-6 py-5 text-sm text-red-700 shadow-sm">
+            {error}
+          </div>
+        )}
+
+        {/* PRODUCTS GRID */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {loading
-            ? Array.from({ length: 6 }).map((_, index) => (
+            ? Array.from({ length: 8 }).map((_, index) => (
                 <div
                   key={index}
-                  className="animate-pulse rounded-3xl border border-slate-200 bg-white p-6"
+                  className="animate-pulse overflow-hidden rounded-3xl border border-slate-200 bg-white"
                 >
-                  <div className="mb-5 h-48 w-full rounded-3xl bg-slate-200" />
-                  <div className="h-4 w-3/4 rounded-full bg-slate-200 mb-3" />
-                  <div className="h-4 w-1/2 rounded-full bg-slate-200 mb-4" />
-                  <div className="h-10 w-full rounded-full bg-slate-200" />
+                  <div className="h-64 w-full bg-slate-200" />
+
+                  <div className="p-5">
+                    <div className="mb-3 h-4 w-24 rounded-full bg-slate-200" />
+                    <div className="mb-3 h-5 w-3/4 rounded-full bg-slate-200" />
+                    <div className="mb-5 h-4 w-1/2 rounded-full bg-slate-200" />
+                    <div className="h-10 w-full rounded-2xl bg-slate-200" />
+                  </div>
                 </div>
               ))
             : filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard
+                  key={product.id || product._id}
+                  product={product}
+                />
               ))}
         </div>
+
+        {/* EMPTY STATE */}
+        {!loading && filteredProducts.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="rounded-full bg-slate-100 px-6 py-4 text-4xl">
+              🛍️
+            </div>
+
+            <h3 className="mt-6 text-2xl font-bold text-slate-900">
+              No products found
+            </h3>
+
+            <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">
+              Try changing your search keywords or browse another category.
+            </p>
+
+            <button
+              onClick={() => {
+                setSearch("");
+                setCategory("All");
+              }}
+              className="mt-6 rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 export default ProductPage;
+
