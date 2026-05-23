@@ -105,9 +105,6 @@ const Dashboard = () => {
       0
     )
 
-    console.log(orders);
-    
-
     const orderRevenue = orders.reduce((total, order) => total + Number(order.totalPrice || 0), 0)
     const revenue = paymentRevenue || orderRevenue
 

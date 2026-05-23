@@ -1,86 +1,55 @@
 import {
   createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import { useAuth } from "../hooks/useAuth";
+
 import {
   addToCartService,
-  clearCartService,
   getCartService,
   removeCartItemService,
   updateCartItemService,
 } from "../services/cartService";
 
+import { useAuth } from "../hooks/useAuth";
+
+export const CartContext = createContext();
+
 const emptyCart = {
+  id: null,
   items: [],
   subtotal: 0,
   totalItems: 0,
 };
 
-const extractCartItems = (payload) => {
-  const source = payload?.body ?? payload ?? {};
-
-  if (Array.isArray(source)) return source;
-  if (Array.isArray(source.items)) return source.items;
-  if (Array.isArray(source.cartItems)) return source.cartItems;
-  if (Array.isArray(source.cartItemList)) return source.cartItemList;
-  if (source?.cart && Array.isArray(source.cart.items)) return source.cart.items;
-  if (source?.cart && Array.isArray(source.cart.cartItems)) return source.cart.cartItems;
-
-  return [];
-};
-
-const normalizeCart = (payload) => {
-  const rawItems = extractCartItems(payload);
-
-  const items = rawItems.map((item, index) => {
-    const product = item?.product ?? item;
-    const productId =
-      item?.productId ?? product?.id ?? product?._id ?? item?.id;
-
-    return {
-      id:
-        item?.id ??
-        item?.cartItemId ??
-        item?.itemId ??
-        `${productId}-${index}`,
-      productId,
-      name: product?.name ?? item?.productName ?? "Product",
-      price: Number(product?.price ?? item?.price ?? 0),
-      quantity: Number(item?.quantity ?? 1),
-      stock: Number(product?.stock ?? item?.stock ?? 0),
-      imageUrl:
-        product?.images?.[0]?.imageUrl ||
-        product?.imageUrl ||
-        item?.imageUrl ||
-        "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80",
-      categoryName: product?.categoryName ?? item?.categoryName ?? "General",
-      subtotal:
-        Number(product?.price ?? item?.price ?? 0) *
-        Number(item?.quantity ?? 1),
-    };
-  });
-
-  const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-
-  return {
-    items,
-    subtotal,
-    totalItems,
-  };
-};
-
-const CartContext = createContext(null);
-
 export const CartProvider = ({ children }) => {
   const { token } = useAuth();
+
   const [cart, setCart] = useState(emptyCart);
   const [loading, setLoading] = useState(false);
+
+    const normalizeCart = (data) => {
+    const items = Array.isArray(data?.items) ? data.items : [];
+
+    const mapped = items.map((item) => ({
+      id: item.id,
+      quantity: item.quantity ?? 1,
+      productId: item.productId,
+      name: item.productName ?? "Unknown product",
+      price: item.price ?? 0,
+      imageUrl: item.imageUrl ?? "https://via.placeholder.com/300",
+      subtotal: (item.price ?? 0) * (item.quantity ?? 1),
+    }));
+
+    return {
+      id: data?.id ?? null,   
+      items: mapped,
+      subtotal: mapped.reduce((a, b) => a + b.subtotal, 0),
+      totalItems: mapped.reduce((a, b) => a + b.quantity, 0),
+    };
+  };
 
   const refreshCart = useCallback(async () => {
     if (!token) {
@@ -90,10 +59,12 @@ export const CartProvider = ({ children }) => {
 
     try {
       setLoading(true);
-      const response = await getCartService();
-      setCart(normalizeCart(response));
-    } catch (error) {
-      console.error("GET CART ERROR", error);
+
+      const data = await getCartService();
+
+      setCart(normalizeCart(data));
+    } catch (err) {
+      console.error(err);
       setCart(emptyCart);
     } finally {
       setLoading(false);
@@ -104,71 +75,64 @@ export const CartProvider = ({ children }) => {
     void refreshCart();
   }, [refreshCart]);
 
-  const addItem = useCallback(
-    async (productId, quantity = 1) => {
-      if (!token) {
-        throw new Error("Please login to add items to cart.");
-      }
-
-      await addToCartService({
-        productId,
-        quantity: Number(quantity) || 1,
-      });
-
-      await refreshCart();
-    },
-    [refreshCart, token],
-  );
-
-  const updateQuantity = useCallback(
-    async (itemId, quantity) => {
-      await updateCartItemService(itemId, Number(quantity));
-      await refreshCart();
-    },
-    [refreshCart],
-  );
-
-  const removeItem = useCallback(
-    async (itemId) => {
-      await removeCartItemService(itemId);
-      await refreshCart();
-    },
-    [refreshCart],
-  );
-
-  const clearCart = useCallback(async () => {
-    await clearCartService();
+  const addItem = async (productId, quantity = 1) => {
+    await addToCartService(productId, quantity);
     await refreshCart();
-  }, [refreshCart]);
+  };
+
+  const updateItem = async (id, quantity) => {
+    await updateCartItemService(id, quantity);
+    await refreshCart();
+  };
+
+  const removeItem = async (id) => {
+    await removeCartItemService(id);
+    await refreshCart();
+  };
+
+  const clearCart = async () => {
+    try {
+      await Promise.all(
+        cart.items.map((item) =>
+          removeCartItemService(item.id),
+        ),
+      );
+
+      await refreshCart();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const value = useMemo(
     () => ({
       cart,
+      cartId: cart.id,
+
+      // IMPORTANT
       cartItems: cart.items,
       subtotal: cart.subtotal,
       totalItems: cart.totalItems,
-      cartCount: cart.totalItems,
+
       loading,
+
       refreshCart,
+
       addItem,
-      updateQuantity,
+
+      // rename updateItem -> updateQuantity
+      updateQuantity: updateItem,
+
       removeItem,
+
       clearCart,
     }),
-    [addItem, cart, clearCart, loading, refreshCart, removeItem, updateQuantity],
+    [cart, loading, refreshCart],
   );
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+    </CartContext.Provider>
+  );
 };
-
-export const useCartContext = () => {
-  const context = useContext(CartContext);
-
-  if (!context) {
-    throw new Error("useCartContext must be used within a CartProvider");
-  }
-
-  return context;
-};
-
-export default CartContext;

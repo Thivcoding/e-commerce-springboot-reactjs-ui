@@ -7,7 +7,7 @@ import { useCart } from "../../../hooks/useCart";
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { token, user, logout } = useAuth();
-  const { cartCount } = useCart();
+  const { cart  } = useCart();
 
   const menuItems = [
     { label: "Home", path: "/" },
@@ -66,7 +66,7 @@ const Navbar = () => {
             >
               <FaShoppingCart className="text-lg" />
               <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-1.5 rounded-full font-semibold">
-                {cartCount}
+                {cart.items.length}
               </span>
             </Link>
 

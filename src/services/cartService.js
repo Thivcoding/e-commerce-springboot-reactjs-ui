@@ -1,172 +1,61 @@
-// src/services/cartService.js
-
 import {
   addToCartApi,
   createCartApi,
-  getMyCartApi,
+  getCartApi,
   removeCartItemApi,
   updateCartItemApi,
 } from "../api/cartApi";
 
-const emptyCart = {
-  id: null,
-  items: [],
-  cartItems: [],
-  subtotal: 0,
-  totalItems: 0,
-};
-
-const getCartBody = (response) =>
-  response?.data?.body ?? response?.data ?? response;
-
-const getCartItems = (cart = {}) => {
-  if (Array.isArray(cart?.items)) return cart.items;
-  if (Array.isArray(cart?.cartItems)) return cart.cartItems;
-  if (Array.isArray(cart?.cartItemList)) return cart.cartItemList;
-  return [];
-};
-
-const getCartItemId = (item = {}) =>
-  item?.id ?? item?.cartItemId ?? item?.itemId;
-
-const normalizeProductId = (value) => {
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-
-  return parsed;
-};
-
-const normalizeQuantity = (value) => {
-  const parsed = Number(value);
-
-  if (!Number.isFinite(parsed) || parsed < 1) {
-    return 1;
-  }
-
-  return Math.floor(parsed);
-};
+const getBody = (res) => res?.data?.body || res?.data;
 
 export const getCartService = async () => {
   try {
-    const response = await getMyCartApi();
-    return getCartBody(response);
-  } catch (error) {
-    const status = error?.response?.status;
+    const res = await getCartApi();
+    return getBody(res);
+  } catch (err) {
+    if (err?.response?.status === 404) {
+      await createCartApi();
 
-    if (status === 404 || status === 500) {
-      try {
-        await createCartApi();
-        const retryResponse = await getMyCartApi();
-
-        return getCartBody(retryResponse);
-      } catch (retryError) {
-        console.log("GET CART RETRY ERROR :", retryError);
-        throw retryError;
-      }
+      const retry = await getCartApi();
+      return getBody(retry);
     }
 
-    console.log("GET CART ERROR :", error);
-    throw error;
+    throw err;
   }
 };
 
-export const addToCartService = async (data) => {
-  const productId = normalizeProductId(data?.productId);
-  const quantity = normalizeQuantity(data?.quantity);
-
-  if (productId === null) {
-    throw new Error("Invalid product ID for add to cart.");
-  }
-
-  const payload = {
-    productId,
-    quantity,
-  };
-
+export const addToCartService = async (productId, quantity = 1) => {
   try {
-    const response = await addToCartApi(payload);
+    const res = await addToCartApi({
+      productId,
+      quantity,
+    });
 
-    return getCartBody(response);
-  } catch (error) {
-    const status = error?.response?.status;
+    return getBody(res);
+  } catch (err) {
+    if (err?.response?.status === 500) {
+      await createCartApi();
 
-    if (status === 500) {
-      try {
-        await createCartApi();
-      } catch {
-        // ignore create-cart failure and retry the original add once
-      }
+      const retry = await addToCartApi({
+        productId,
+        quantity,
+      });
 
-      try {
-        const retryResponse = await addToCartApi(payload);
-
-        return getCartBody(retryResponse);
-      } catch (retryError) {
-        console.log("ADD TO CART RETRY ERROR :", retryError);
-        throw retryError;
-      }
+      return getBody(retry);
     }
 
-    console.log("ADD TO CART ERROR :", error);
-    throw error;
+    throw err;
   }
 };
 
 export const updateCartItemService = async (id, quantity) => {
-  try {
-    const response = await updateCartItemApi(id, Number(quantity));
+  const res = await updateCartItemApi(id, quantity);
 
-    return getCartBody(response);
-  } catch (error) {
-    console.log("UPDATE CART ERROR :", error);
-    throw error;
-  }
+  return getBody(res);
 };
 
 export const removeCartItemService = async (id) => {
-  try {
-    const response = await removeCartItemApi(id);
+  const res = await removeCartItemApi(id);
 
-    return getCartBody(response);
-  } catch (error) {
-    console.log("REMOVE CART ERROR :", error);
-    throw error;
-  }
-};
-
-export const clearCartService = async () => {
-  try {
-    const cart = await getCartService().catch(() => emptyCart);
-    const items = getCartItems(cart);
-
-    if (!items.length) {
-      return cart;
-    }
-
-    await Promise.all(
-      items
-        .map(getCartItemId)
-        .filter(Boolean)
-        .map((itemId) => removeCartItemApi(itemId)),
-    );
-
-    return getCartService();
-  } catch (error) {
-    console.log("CLEAR CART ERROR :", error);
-    throw error;
-  }
-};
-
-export const createCartService = async () => {
-  try {
-    const response = await createCartApi();
-
-    return getCartBody(response);
-  } catch (error) {
-    console.log("CREATE CART ERROR :", error);
-    throw error;
-  }
+  return getBody(res);
 };

@@ -1,36 +1,26 @@
-// src/api/cartApi.js
-
 import axiosClient from "./axiosClient";
 
-const CART_PATH = "/carts";
-const CART_ITEM_PATH = "/cart-items";
-
-export const createCartApi = () => {
-  return axiosClient.post(CART_PATH);
-};
-
-export const getMyCartApi = () => {
-  return axiosClient.get(`${CART_PATH}/my-cart`);
-};
+const CART = "/carts";
+const CART_ITEM = "/cart-items";
 
 export const getCartApi = () => {
-  return getMyCartApi();
+  return axiosClient.get(`${CART}/my-cart`);
+};
+
+export const createCartApi = () => {
+  return axiosClient.post(CART);
 };
 
 export const addToCartApi = (data) => {
-  console.log(data);
-  
-  return axiosClient.post(CART_ITEM_PATH, data);
+  return axiosClient.post(CART_ITEM, data);
 };
 
 export const updateCartItemApi = (id, quantity) => {
-  console.log(id, quantity);
-  return axiosClient.put(`${CART_ITEM_PATH}/${id}`, null, {
+  return axiosClient.put(`${CART_ITEM}/${id}`, null, {
     params: { quantity },
   });
 };
 
 export const removeCartItemApi = (id) => {
-  console.log(id);
-  return axiosClient.delete(`${CART_ITEM_PATH}/${id}`);
+  return axiosClient.delete(`${CART_ITEM}/${id}`);
 };

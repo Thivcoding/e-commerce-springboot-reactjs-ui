@@ -4,9 +4,9 @@ import {
   getProductByIdService,
   getAllProductsService,
 } from "../../../services/productService";
-import { addToCartService } from "../../../services/cartService";
 import { FaShoppingCart } from "react-icons/fa";
 import ProductCard from "../../../components/users/ProductCard";
+import useCart from "../../../hooks/useCart";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -15,6 +15,8 @@ const ProductDetail = () => {
   const [error, setError] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  const { addItem } = useCart();
 
   const images = product?.images || [];
   const [related, setRelated] = useState([]);
@@ -66,26 +68,15 @@ const ProductDetail = () => {
     : 0;
 
   const handleAddToCart = async () => {
-    if (!product) return;
-
-    const productId = Number(product?.id ?? product?._id);
-    const safeQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
-
-    if (!Number.isFinite(productId) || productId <= 0) {
-      alert("Unable to add to cart.");
-      return;
-    }
+    if (!product?.id) return;
 
     try {
-      await addToCartService({
-        productId,
-        quantity: safeQuantity,
-      });
-      // simple feedback; app may have a toast system
+      await addItem(product.id, quantity);
+
       alert("Added to cart");
     } catch (err) {
       console.error(err);
-      alert("Unable to add to cart");
+      alert("Failed to add cart");
     }
   };
 

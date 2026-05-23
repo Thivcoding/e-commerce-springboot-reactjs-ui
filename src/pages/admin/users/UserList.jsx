@@ -17,7 +17,7 @@ const UserList = () => {
       setLoading(true);
 
       const data = await getAllUsersService();
-      console.log(data.body);
+      // console.log(data.body);
 
       setUsers(data.body);
     } catch (error) {
@@ -32,6 +32,7 @@ const UserList = () => {
   }, []);
 
   const handleDelete = async (id) => {
+    
     if (!window.confirm("Delete this user ?")) return;
 
     try {
