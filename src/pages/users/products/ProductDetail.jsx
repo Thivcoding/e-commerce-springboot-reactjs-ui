@@ -14,6 +14,7 @@ import {
 
 import ProductCard from "../../../components/users/ProductCard";
 import useCart from "../../../hooks/useCart";
+import { useAuth } from "../../../hooks/useAuth";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -29,6 +30,7 @@ const ProductDetail = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const { addItem } = useCart();
+  const { token } = useAuth();
 
   // =========================
   // FETCH PRODUCT
@@ -159,6 +161,9 @@ const ProductDetail = () => {
   // ADD TO CART
   // =========================
   const handleAddToCart = async () => {
+
+    if (!token) return navigate("/login");
+
     try {
       await addItem(
         product?.id || product?._id,
@@ -238,7 +243,7 @@ const ProductDetail = () => {
               <img
                 src={imageUrl}
                 alt={product?.name}
-                className="mx-auto max-h-[650px] w-full object-cover transition duration-500 hover:scale-105"
+                className="mx-auto max-h-[650px] h-full w-full object-contain transition duration-500 hover:scale-105"
               />
 
               {images.length > 1 && (

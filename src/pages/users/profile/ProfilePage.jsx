@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../../hooks/useAuth";
 import {
   getUserByIdService,
@@ -11,11 +11,11 @@ import {
   FaLock,
   FaSave,
   FaTimes,
-  //   FaLoader,
 } from "react-icons/fa";
 
 const ProfilePage = () => {
-  const { user, token } = useAuth();
+  const { user, token , updateUser  } = useAuth();
+
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -27,27 +27,31 @@ const ProfilePage = () => {
     name: "",
     email: "",
     password: "",
-    profileImage: "",
+    imageUrl: "",
   });
 
   const [formData, setFormData] = useState({ ...profileData });
 
-  // Load user profile
+  const [imageFile, setImageFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+
+  // LOAD PROFILE
   useEffect(() => {
     const loadProfile = async () => {
       try {
         setLoading(true);
-        setError(null);
 
         if (user?.id && token) {
-          const response = await getUserByIdService(user.id);
-          const profile = response?.body ?? response;
-          setProfileData({ ...profile, password: "" });
-          setFormData({ ...profile, password: "" });
+          const res = await getUserByIdService(user.id);
+          const profile = res?.body ?? res;
+
+          const clean = { ...profile, password: "" };
+
+          setProfileData(clean);
+          setFormData(clean);
         }
       } catch (err) {
-        setError("Failed to load profile. Please try again.");
-        console.error("Error loading profile:", err);
+        setError("Failed to load profile");
       } finally {
         setLoading(false);
       }
@@ -56,56 +60,60 @@ const ProfilePage = () => {
     loadProfile();
   }, [user, token]);
 
+  // HANDLE INPUT
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const buildProfileFormData = (data) => {
-    const formPayload = new FormData();
-    const allowedFields = ["name", "email", "password"];
+  // IMAGE CHANGE
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    allowedFields.forEach((field) => {
-      if (field === "password") {
-        if (data.password) {
-          formPayload.append(field, data.password);
-        }
-      } else if (data[field] !== undefined) {
-        formPayload.append(field, data[field] ?? "");
-      }
-    });
-
-    return formPayload;
+    setImageFile(file);
+    setPreview(URL.createObjectURL(file));
   };
 
+  // SAVE PROFILE
   const handleSave = async (e) => {
     e.preventDefault();
-
-    if (!formData.name || !formData.email) {
-      setError("Name and email are required.");
-      return;
-    }
 
     try {
       setUpdating(true);
       setError(null);
 
-      const payload = buildProfileFormData(formData);
-      const response = await updateUserService(user.id, payload);
-      const updatedProfile = response?.body ?? response;
+      const form = new FormData();
+      form.append("name", formData.name);
+      form.append("email", formData.email);
 
-      setProfileData(updatedProfile);
-      setFormData(updatedProfile);
+      if (formData.password) {
+        form.append("password", formData.password);
+      }
+
+      if (imageFile) {
+        form.append("image", imageFile);
+      }
+
+      const res = await updateUserService(user.id, form);
+      const updated = res?.body ?? res;
+
+
+      updateUser(updated); 
+      
+      const clean = { ...updated, password: "" };
+
+      setProfileData(clean);
+      setFormData(clean);
+
+      setImageFile(null);
+      setPreview(null);
+
       setIsEditing(false);
-      setSuccess("Profile updated successfully!");
+      setSuccess("Profile updated successfully");
 
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError("Failed to update profile. Please try again.");
-      console.error("Error updating profile:", err);
+      setError("Update failed");
     } finally {
       setUpdating(false);
     }
@@ -114,186 +122,157 @@ const ProfilePage = () => {
   const handleCancel = () => {
     setFormData(profileData);
     setIsEditing(false);
-    setError(null);
+    setImageFile(null);
+    setPreview(null);
   };
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            Please log in
-          </h2>
-          <p className="text-gray-600">
-            You need to be logged in to view your profile.
-          </p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-600">Please login to continue</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
+    <div className="min-h-screen bg-gray-50 py-10 px-4">
+      <div className="max-w-3xl mx-auto">
+
+        {/* HEADER */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 border">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">My Profile</h1>
+
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200 font-medium"
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg"
               >
-                <FaEdit size={16} /> Edit Profile
+                <FaEdit /> Edit
               </button>
             )}
           </div>
 
-          {/* Status Messages */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg flex items-center gap-2">
-              <span>⚠️</span>
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center gap-2">
-              <span>✓</span>
-              {success}
-            </div>
-          )}
+          {error && <p className="text-red-500 mt-2">{error}</p>}
+          {success && <p className="text-green-600 mt-2">{success}</p>}
         </div>
 
-        {/* Loading State */}
-        {loading ? (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            {/* <FaLoader className="animate-spin text-indigo-600 text-3xl mx-auto mb-4" /> */}
-            <p className="text-gray-600">Loading profile...</p>
-          </div>
-        ) : (
-          <form onSubmit={handleSave}>
-            <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
-              {/* Profile Image Section */}
-              <div className="border-b pb-6">
-                <div className="flex flex-col sm:flex-row items-center gap-6">
-                  <div className="w-24 h-24 rounded-full bg-indigo-600 flex items-center justify-center text-white flex-shrink-0">
-                    <img
-                      className="w-full h-full rounded-full object-cover"
-                      src={user?.imageUrl}
-                      alt={user?.name}
-                    />
-                  </div>
-                  <div className="flex-1 text-center sm:text-left">
-                    <p className="text-2xl font-bold text-gray-800">
-                      {profileData.name}
-                    </p>
-                    <p className="text-gray-600">{profileData.email}</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      ID: {profileData.id}
-                    </p>
-                  </div>
-                </div>
-              </div>
+        {/* PROFILE CARD */}
+        <div className="bg-white rounded-2xl shadow-sm border p-6">
 
-              {/* Form Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* Name */}
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <FaUser className="inline mr-2" /> Full Name *
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                      required
-                    />
-                  ) : (
-                    <p className="px-4 py-2 text-gray-800 bg-gray-50 rounded-lg">
-                      {profileData.name}
-                    </p>
-                  )}
-                </div>
+          {/* AVATAR */}
+          <div className="flex flex-col items-center gap-4 pb-6 border-b">
 
-                {/* Email */}
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <FaEnvelope className="inline mr-2" /> Email *
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                      required
-                    />
-                  ) : (
-                    <p className="px-4 py-2 text-gray-800 bg-gray-50 rounded-lg">
-                      {profileData.email}
-                    </p>
-                  )}
-                </div>
+            <div className="relative">
+              <img
+                src={preview || profileData.imageUrl || user?.imageUrl}
+                className="w-24 h-24 rounded-full object-cover border"
+                alt="profile"
+              />
 
-                {/* Password */}
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <FaLock className="inline mr-2" /> Password
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      placeholder="Enter new password"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                    />
-                  ) : (
-                    <p className="px-4 py-2 text-gray-800 bg-gray-50 rounded-lg">
-                      ********
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
               {isEditing && (
-                <div className="flex gap-3 pt-4 border-t">
+                <label className="absolute bottom-0 right-0 bg-indigo-600 p-2 rounded-full text-white cursor-pointer">
+                  <FaEdit size={12} />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageChange}
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className="text-center">
+              <h2 className="text-lg font-bold">{profileData.name}</h2>
+              <p className="text-sm text-gray-500">{profileData.email}</p>
+            </div>
+          </div>
+
+          {loading ? (
+            <p className="text-center py-10 text-gray-500">
+              Loading...
+            </p>
+          ) : (
+            <form onSubmit={handleSave} className="mt-6 space-y-5">
+
+              {/* NAME */}
+              <div>
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                  <FaUser /> Name
+                </label>
+
+                {isEditing ? (
+                  <input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="w-full mt-1 border px-4 py-2 rounded-lg"
+                  />
+                ) : (
+                  <p className="mt-1">{profileData.name}</p>
+                )}
+              </div>
+
+              {/* EMAIL */}
+              <div>
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                  <FaEnvelope /> Email
+                </label>
+
+                {isEditing ? (
+                  <input
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full mt-1 border px-4 py-2 rounded-lg"
+                  />
+                ) : (
+                  <p className="mt-1">{profileData.email}</p>
+                )}
+              </div>
+
+              {/* PASSWORD */}
+              {isEditing && (
+                <div>
+                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                    <FaLock /> Password
+                  </label>
+
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full mt-1 border px-4 py-2 rounded-lg"
+                  />
+                </div>
+              )}
+
+              {/* BUTTONS */}
+              {isEditing && (
+                <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
                     disabled={updating}
-                    className="flex items-center justify-center gap-2 flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition duration-200 font-medium"
+                    className="flex-1 bg-indigo-600 text-white py-2 rounded-lg"
                   >
-                    {updating ? (
-                      <>
-                        {/* <FaLoader className="animate-spin" size={16} />{" "} */}
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <FaSave size={16} /> Save Changes
-                      </>
-                    )}
+                    {updating ? "Saving..." : "Save"}
                   </button>
+
                   <button
                     type="button"
                     onClick={handleCancel}
-                    disabled={updating}
-                    className="flex items-center justify-center gap-2 flex-1 px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 disabled:opacity-50 transition duration-200 font-medium"
+                    className="flex-1 bg-gray-200 py-2 rounded-lg"
                   >
-                    <FaTimes size={16} /> Cancel
+                    Cancel
                   </button>
                 </div>
               )}
-            </div>
-          </form>
-        )}
+
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

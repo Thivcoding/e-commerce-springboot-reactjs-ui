@@ -25,3 +25,7 @@ export const updatePaymentStatusApi = (id, status) => {
     },
   });
 };
+
+export const checkBakongPaymentStatusApi = (id) => {
+  return axiosClient.get(`/payments/${id}/check-bakong`);
+}

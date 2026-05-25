@@ -6,6 +6,7 @@ import {
   getPaymentByIdApi,
   getMyPaymentsApi,
   updatePaymentStatusApi,
+  checkBakongPaymentStatusApi,
 } from "../api/paymentApi";
 
 export const createPaymentService = async (data) => {
@@ -59,6 +60,17 @@ export const updatePaymentStatusService = async (id, status) => {
     return response.data;
   } catch (error) {
     console.log("UPDATE PAYMENT STATUS ERROR :", error);
+    throw error;
+  }
+};
+
+export const checkBakongPaymentStatusService = async (id) => {
+  try {
+    const response = await checkBakongPaymentStatusApi(id);
+
+    return response.data;
+  } catch (error) {
+    console.log("CHECK BAKONG PAYMENT STATUS ERROR :", error);
     throw error;
   }
 };

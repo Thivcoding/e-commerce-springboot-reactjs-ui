@@ -1,12 +1,23 @@
 import { useEffect, useState } from "react";
-import { FaSearch, FaShoppingCart, FaBars, FaTimes } from "react-icons/fa";
+import {
+  FaSearch,
+  FaShoppingCart,
+  FaBars,
+  FaTimes,
+  FaChevronDown,
+  FaUser,
+  FaBox,
+  FaHeart,
+  FaCog,
+  FaSignOutAlt,
+} from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/useAuth";
 import { useCart } from "../../../hooks/useCart";
 import { getAllCategoriesService } from "../../../services/categoryService";
 
 const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -29,12 +40,12 @@ const Navbar = () => {
         const fetchedCategories = Array.isArray(result?.body)
           ? result.body
           : Array.isArray(result)
-            ? result
-            : [];
+          ? result
+          : [];
 
         setCategories(fetchedCategories);
       } catch (error) {
-        console.error("Failed to load categories for navbar", error);
+        console.error("Failed to load categories", error);
         setCategories([]);
       }
     };
@@ -52,18 +63,18 @@ const Navbar = () => {
   const handleSearch = (e) => {
     if (e.key === "Enter") {
       console.log("Search:", search);
-      // TODO: navigate to /products?search=...
     }
   };
 
-  const categoryLinks = categories.map((category) => ({
-    label: category.name,
-    path: `/products?category=${encodeURIComponent(category.name)}`,
+  const categoryLinks = categories.map((c) => ({
+    label: c.name,
+    path: `/products?category=${encodeURIComponent(c.name)}`,
   }));
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0B1220]/90 backdrop-blur-md text-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+
         {/* LOGO */}
         <Link to="/" className="flex items-center gap-2">
           <div className="bg-amber-300 px-3 py-1 rounded-lg font-black text-black">
@@ -72,81 +83,71 @@ const Navbar = () => {
           <span className="text-lg font-black">Ecommerce</span>
         </Link>
 
-        {/* MENU (DESKTOP) */}
+        {/* DESKTOP MENU */}
         <nav className="hidden lg:flex items-center gap-8">
           {menuItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className="text-gray-300 hover:text-white transition text-sm font-medium"
+              className="text-gray-300 hover:text-white text-sm font-medium"
             >
               {item.label}
             </Link>
           ))}
 
+          {/* CATEGORY DROPDOWN */}
           <div className="relative">
             <button
-              type="button"
-              onClick={() => setCategoryOpen((open) => !open)}
-              className="flex items-center gap-1 text-sm font-medium text-gray-300 transition hover:text-white"
+              onClick={() => setCategoryOpen(!categoryOpen)}
+              className="text-sm text-gray-300 hover:text-white"
             >
-              Categories
-              <span className="text-xs">▾</span>
+              Categories ▾
             </button>
 
             {categoryOpen && (
-              <div className="absolute left-0 top-full mt-2 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#111827] shadow-2xl">
+              <div className="absolute top-full mt-2 w-56 rounded-xl bg-[#111827] border border-white/10 shadow-xl">
                 <Link
                   to="/products"
+                  className="block px-4 py-3 hover:bg-white/5"
                   onClick={() => setCategoryOpen(false)}
-                  className="block px-4 py-3 text-sm text-gray-200 transition hover:bg-white/5 hover:text-white"
                 >
                   All Categories
                 </Link>
 
-                {categoryLinks.length > 0 ? (
-                  categoryLinks.map((category) => (
-                    <Link
-                      key={category.path}
-                      to={category.path}
-                      onClick={() => setCategoryOpen(false)}
-                      className="block px-4 py-3 text-sm text-gray-200 transition hover:bg-white/5 hover:text-white"
-                    >
-                      {category.label}
-                    </Link>
-                  ))
-                ) : (
-                  <div className="px-4 py-3 text-sm text-gray-400">
-                    Loading categories...
-                  </div>
-                )}
+                {categoryLinks.map((cat) => (
+                  <Link
+                    key={cat.path}
+                    to={cat.path}
+                    className="block px-4 py-3 hover:bg-white/5"
+                    onClick={() => setCategoryOpen(false)}
+                  >
+                    {cat.label}
+                  </Link>
+                ))}
               </div>
             )}
           </div>
         </nav>
 
-        {/* RIGHT SIDE */}
+        {/* RIGHT */}
         <div className="flex items-center gap-4">
+
           {/* SEARCH */}
-          <div className="hidden sm:flex items-center gap-2 rounded-full bg-white/5 px-3 py-2">
-            <FaSearch className="text-gray-400 text-sm" />
+          <div className="hidden sm:flex items-center gap-2 bg-white/5 px-3 py-2 rounded-full">
+            <FaSearch className="text-gray-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearch}
-              placeholder="Search products..."
-              className="bg-transparent outline-none text-sm text-white placeholder-gray-500 w-32 lg:w-48"
+              placeholder="Search..."
+              className="bg-transparent outline-none text-sm"
             />
           </div>
 
           {/* CART */}
-          <Link
-            to="/cart"
-            className="relative rounded-full bg-white/5 p-2 hover:bg-white/10 transition"
-          >
+          <Link to="/cart" className="relative p-2 bg-white/5 rounded-full">
             <FaShoppingCart />
-
-            <span className="absolute -top-1 -right-1 bg-amber-300 text-black text-xs px-1.5 rounded-full font-bold">
+            <span className="absolute -top-1 -right-1 bg-amber-300 text-black text-xs px-1.5 rounded-full">
               {cartCount}
             </span>
           </Link>
@@ -154,46 +155,46 @@ const Navbar = () => {
           {/* AUTH */}
           {token && user ? (
             <div className="hidden sm:block relative">
-              <button
-                type="button"
-                onClick={() => setProfileOpen((open) => !open)}
-                aria-expanded={profileOpen}
-                aria-haspopup="menu"
-                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1.5 pr-3 transition hover:bg-white/10"
+             <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-2 bg-white/5 px-2 py-1 rounded-full hover:bg-white/10 transition"
               >
                 <img
                   src={user?.imageUrl}
-                  alt={user?.name}
-                  className="h-8 w-8 rounded-full object-cover border border-white/20"
+                  className="w-8 h-8 rounded-full object-cover"
+                  alt="user"
                 />
-                <span className="text-sm font-medium text-white">
-                  {user?.name}
-                </span>
-                <span className="text-xs text-gray-300">▾</span>
-              </button>
 
+                <span className="text-sm">{user?.name}</span>
+
+                {/* DROPDOWN ICON */}
+                <FaChevronDown
+                  className={`text-xs transition-transform duration-200 ${
+                    profileOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
               {profileOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#111827] shadow-2xl">
+                <div className="absolute right-0 top-full mt-2 w-44 bg-[#111827] border border-white/10 rounded-xl">
                   <Link
                     to="/profile"
+                    className="block px-4 py-3 hover:bg-white/5"
                     onClick={() => setProfileOpen(false)}
-                    className="block px-4 py-3 text-sm text-gray-200 transition hover:bg-white/5 hover:text-white"
                   >
                     Profile
                   </Link>
+
                   <Link
                     to="/my-orders"
+                    className="block px-4 py-3 hover:bg-white/5"
                     onClick={() => setProfileOpen(false)}
-                    className="block px-4 py-3 text-sm text-gray-200 transition hover:bg-white/5 hover:text-white"
                   >
-                    My Orders
+                    Orders
                   </Link>
+
                   <button
-                    onClick={() => {
-                      setProfileOpen(false);
-                      handleLogout();
-                    }}
-                    className="w-full px-4 py-3 text-left text-sm font-semibold text-red-300 transition hover:bg-red-500/10"
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-3 text-red-400 hover:bg-red-500/10"
                   >
                     Logout
                   </button>
@@ -201,17 +202,11 @@ const Navbar = () => {
               )}
             </div>
           ) : (
-            <div className="hidden sm:flex items-center gap-2">
-              <Link
-                to="/login"
-                className="text-sm text-gray-300 hover:text-white"
-              >
-                Login
-              </Link>
-
+            <div className="hidden sm:flex gap-3">
+              <Link to="/login" className="text-gray-300">Login</Link>
               <Link
                 to="/register"
-                className="rounded-full bg-amber-300 px-4 py-1.5 text-sm font-bold text-black hover:bg-amber-200"
+                className="bg-amber-300 text-black px-4 py-1 rounded-full font-bold"
               >
                 Register
               </Link>
@@ -220,93 +215,149 @@ const Navbar = () => {
 
           {/* MOBILE BUTTON */}
           <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="lg:hidden text-white"
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden text-white text-xl"
           >
-            {isOpen ? <FaTimes /> : <FaBars />}
+            <FaBars />
           </button>
         </div>
       </div>
 
-      {/* MOBILE MENU */}
-      {isOpen && (
-        <div className="lg:hidden border-t border-white/10 bg-[#0B1220] px-4 py-4">
+      {/* OVERLAY */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* SIDEBAR */}
+      <div
+        className={`fixed top-0 left-0 z-50 h-screen w-72 bg-[#0B1220] text-white transition-transform duration-300
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <h2 className="font-bold text-lg">Menu</h2>
+          <button onClick={() => setSidebarOpen(false)}>
+            <FaTimes />
+          </button>
+        </div>
+
+        <div className="p-4 flex flex-col gap-4">
+
+          {/* LINKS */}
           <div className="flex flex-col gap-3">
             {menuItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                onClick={() => setIsOpen(false)}
-                className="text-gray-300 hover:text-white"
+                onClick={() => setSidebarOpen(false)}
+                className="text-gray-300"
               >
                 {item.label}
               </Link>
             ))}
+          </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-              <p className="text-xs uppercase tracking-[0.2em] text-gray-400">
-                Categories
-              </p>
-              <div className="mt-2 flex flex-col gap-2">
+          {/* CATEGORY */}
+          <div className="border-t border-white/10 pt-4">
+            <p className="text-xs text-gray-400 mb-2">Categories</p>
+
+            <div className="flex flex-col gap-2">
+              <Link to="/products" onClick={() => setSidebarOpen(false)}>
+                All Categories
+              </Link>
+
+              {categoryLinks.map((cat) => (
                 <Link
-                  to="/products"
-                  onClick={() => setIsOpen(false)}
-                  className="text-sm text-gray-200"
+                  key={cat.path}
+                  to={cat.path}
+                  onClick={() => setSidebarOpen(false)}
+                  className="text-gray-300"
                 >
-                  All Categories
+                  {cat.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* AUTH */}
+          {/* AUTH / PROFILE SECTION */}
+          <div className="border-t border-white/10 pt-4">
+
+            {token && user ? (
+              <div className="flex flex-col gap-3">
+
+                {/* USER INFO CARD */}
+                <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl">
+                  <img
+                    src={user?.imageUrl}
+                    className="w-10 h-10 rounded-full object-cover"
+                    alt="user"
+                  />
+                  <div>
+                    <p className="text-sm font-bold">{user?.name}</p>
+                    <p className="text-xs text-gray-400">My Account</p>
+                  </div>
+                </div>
+
+                {/* MENU ITEMS */}
+                <Link
+                  to="/profile"
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center gap-3 text-gray-300 hover:text-white"
+                >
+                  <FaUser /> Profile
                 </Link>
 
-                {categoryLinks.length > 0 ? (
-                  categoryLinks.map((category) => (
-                    <Link
-                      key={category.path}
-                      to={category.path}
-                      onClick={() => setIsOpen(false)}
-                      className="text-sm text-gray-200"
-                    >
-                      {category.label}
-                    </Link>
-                  ))
-                ) : (
-                  <span className="text-sm text-gray-400">
-                    Loading categories...
-                  </span>
-                )}
+                <Link
+                  to="/my-orders"
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center gap-3 text-gray-300 hover:text-white"
+                >
+                  <FaBox /> Order History
+                </Link>
+
+                <Link
+                  to="/cart"
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center gap-3 text-gray-300 hover:text-white"
+                >
+                  <FaShoppingCart /> Cart
+                </Link>
+
+                {/* LOGOUT */}
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 transition py-2 rounded-lg font-bold mt-2"
+                >
+                  <FaSignOutAlt />
+                  Logout
+                </button>
               </div>
-            </div>
-
-            {/* MOBILE SEARCH */}
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search..."
-              className="mt-3 rounded-full bg-white/5 px-4 py-2 text-sm outline-none"
-            />
-
-            {/* MOBILE AUTH */}
-            {token && user ? (
-              <button
-                onClick={handleLogout}
-                className="rounded bg-red-500 py-2 text-sm font-bold"
-              >
-                Logout
-              </button>
             ) : (
               <div className="flex flex-col gap-2">
-                <Link to="/login" className="text-sm text-gray-300">
+                <Link
+                  to="/login"
+                  onClick={() => setSidebarOpen(false)}
+                  className="text-gray-300"
+                >
                   Login
                 </Link>
+
                 <Link
                   to="/register"
-                  className="rounded bg-amber-300 py-2 text-center text-sm font-bold text-black"
+                  onClick={() => setSidebarOpen(false)}
+                  className="bg-amber-300 text-black py-2 text-center rounded font-bold"
                 >
                   Register
                 </Link>
               </div>
             )}
+
           </div>
         </div>
-      )}
+      </div>
     </header>
   );
 };

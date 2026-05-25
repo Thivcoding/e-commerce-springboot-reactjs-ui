@@ -12,6 +12,7 @@ import ProductPage from "../pages/users/products/ProductPage";
 import CartPage from "../pages/users/cart/CartPage";
 import CheckoutPage from "../pages/users/checkout/CheckoutPage";
 import MyOrdersPage from "../pages/users/orders/MyOrdersPage";
+import About from "../pages/users/about/About";
 
 // ================= ERROR =================
 import NotFound from "../pages/error/NotFound";
@@ -50,6 +51,8 @@ import OrderDetailPage from "../pages/admin/orders/OrderDetailPage";
 import PaymentList from "../pages/admin/payments/PaymentList";
 import PaymentDetailPage from "../pages/admin/payments/PaymentDetailPage";
 import ProfilePage from "../pages/users/profile/ProfilePage";
+import Contact from "../pages/users/contact/Contact";
+import BakongQRPage from "../pages/users/payment/BakongQRPage";
 
 const AppRoute = () => {
   return (
@@ -69,11 +72,22 @@ const AppRoute = () => {
           <Route path="/register" element={<Register />} />
 
           <Route index element={<Home />} />
+
+          <Route path="about" element={<About />} />
+
+          <Route path="contact" element={<Contact />} />
+
           <Route path="products" element={<ProductPage />} />
           <Route path="products/:id" element={<ProductDetail />} />
+
           <Route path="cart" element={<CartPage />} />
+
           <Route path="checkout" element={<CheckoutPage />} />
+
+          <Route path="/payment/bakong/:id" element={<BakongQRPage />} />
+
           <Route path="my-orders" element={<MyOrdersPage />} />
+
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 

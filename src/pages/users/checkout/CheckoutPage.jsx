@@ -16,7 +16,7 @@ const initialForm = {
 
 const unwrap = (res) => res?.body ?? res;
 
-const PAYMENT_METHODS = ["CASH", "CARD", "BAKONG"];
+const PAYMENT_METHODS = ["CASH", "BAKONG"];
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
@@ -86,52 +86,40 @@ const CheckoutPage = () => {
       const orderId = orderRes?.id || orderRes?.orderId;
       const orderTotal = orderRes?.totalPrice || subtotal;
 
-      if (!orderId) {
-        throw new Error("Order creation failed");
-      }
+      if (!orderId) throw new Error("Order creation failed");
 
       // =========================
-      // 2. PAYMENT STATUS LOGIC
+      // 2. PAYMENT CREATE (BAKONG or CASH)
       // =========================
-      let paymentStatus = "PENDING";
-
-      // CASH = instant success
-      if (paymentMethod === "CASH") {
-        paymentStatus = "PAID";
-      }
-
       const paymentRes = unwrap(
         await createPaymentService({
           orderId,
           amount: orderTotal,
-          currency: "USD",
+          currency: paymentMethod === "BAKONG" ? "KHR" : "USD",
           paymentMethod,
-          paymentStatus,
+          paymentStatus: paymentMethod === "CASH" ? "PAID" : "PENDING",
         })
       );
 
-      // =========================
-      // 3. HANDLE PAYMENT TYPE FLOW
-      // =========================
+      if (!paymentRes?.id) throw new Error("Payment failed");
 
-      // CARD FLOW (redirect to gateway)
-      if (paymentMethod === "CARD") {
-        window.location.href =
-          paymentRes?.checkoutUrl || "/payment/card";
-        return;
+      // =========================
+      // 3. USE CASE (CASH + BAKONG)
+      // =========================
+      switch (paymentMethod) {
+        case "CASH":
+          await clearCart();
+          navigate("/my-orders");
+          break;
+
+        case "BAKONG":
+          await clearCart();
+          navigate(`/payment/bakong/${paymentRes.id}`);
+          break;
+
+        default:
+          throw new Error("Invalid payment method");
       }
-
-      // BAKONG FLOW (QR page)
-      if (paymentMethod === "BAKONG") {
-        navigate(`/payment/bakong/${paymentRes?.id}`);
-        return;
-      }
-
-      // =========================
-      // 4. CASH FLOW (COMPLETE ORDER)
-      // =========================
-      await clearCart();
-      navigate("/my-orders");
     } catch (err) {
       console.error(err);
       setError(
@@ -151,14 +139,14 @@ const CheckoutPage = () => {
 
       <div className="mx-auto max-w-6xl">
 
-        {/* HEADER (UNCHANGED UI) */}
+        {/* HEADER */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold">Checkout</h1>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
 
-          {/* FORM (UNCHANGED UI) */}
+          {/* FORM */}
           <form onSubmit={handleSubmit} className="rounded-3xl bg-white p-6 shadow">
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -209,7 +197,7 @@ const CheckoutPage = () => {
               />
             </div>
 
-            {/* PAYMENT UI (UNCHANGED) */}
+            {/* PAYMENT METHODS */}
             <div className="mt-6">
               <h3 className="font-semibold mb-2">Payment Method</h3>
 
@@ -255,7 +243,7 @@ const CheckoutPage = () => {
 
           </form>
 
-          {/* SUMMARY (UNCHANGED UI) */}
+          {/* SUMMARY */}
           <aside className="bg-white p-6 rounded-3xl shadow">
 
             <h2 className="font-bold text-lg">Order Summary</h2>
